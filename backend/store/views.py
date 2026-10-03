@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .models import Product,Category,CartItem,Cart
+from .models import Product,Category,CartItem,Cart,Order,OrderItem
 from .serializers import ProductSerializer,CategorySerializer,CartItemSerializer,CartSerializer
 
 
@@ -35,17 +35,107 @@ def get_cart(request):
 @api_view(['POST'])
 def add_to_cart(request):
     product_id = request.data.get('product_id')
-    product = Product.objects.get(id=product_id)
+
+    if not product_id:
+        return Response(
+            {'error': 'Product ID is required'},
+            status=400
+        )
+
+    try:
+        product = Product.objects.get(id=product_id)
+    except Product.DoesNotExist:
+        return Response(
+            {'error': 'Product not found'},
+            status=404
+        )
+
     cart, created = Cart.objects.get_or_create(user=None)
-    item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+
+    item, created = CartItem.objects.get_or_create(
+        cart=cart,
+        product=product
+    )
+
     if not created:
         item.quantity += 1
+
     item.save()
-    return Response({'message': 'Product added to cart',"cart":CartItemSerializer(cart).data}, status=200)
+
+    return Response({
+        'message': 'Product added to cart',
+        'cart': CartSerializer(cart).data
+    }, status=200)
+    
+    
+@api_view(['POST'])
+def update_cart_item(request):
+    item_id = request.data.get('item_id')
+    quantity = request.data.get('quantity')
+    
+    if not item_id or quantity is None:
+        return Response({'error': 'Item ID and quantity are required'}, status=400)
+    
+    try:
+        item = CartItem.objects.get(id=item_id)
+        if quantity < 1:
+            item.delete()
+            return Response({'error': 'Quantity must be greater than 1'}, status=400)
+        
+        item.quantity = quantity
+        item.save()
+        serializer = CartItemSerializer(item)
+        return Response(serializer.data, status=200)
+    
+    except CartItem.DoesNotExist:
+        return Response({'error': 'Cart item not found'}, status=404) 
 
 
 @api_view(['POST'])
-def remove_from_cart(request, pk):
+def remove_from_cart(request):
     item_id = request.data.get('item_id')
     CartItem.objects.filter(id=item_id).delete()
     return Response({'message': 'Product removed from cart'}, status=200)
+
+#CREATE ORDER
+@api_view(['POST'])
+def create_order(request):
+    try:
+        data = request.data
+        name = data.get('name')
+        address = data.get('address')
+        phone = data.get('phone')
+        payment_method = data.get('payment_method', 'COD')  # Default to Cash on Delivery if not provided
+        
+        cart = Cart.objects.first()
+        
+        if not cart or not cart.items.exists():
+            return Response({'error': 'Cart is empty'}, status=400)
+        
+        total_price = sum(float(item.product.price * item.quantity) for item in cart.items.all())
+        
+        #create order
+        order = Order.objects.create(
+            user=None,  # Assuming no user authentication for now
+            total_amount=total_price,
+            
+        )
+        
+        #CREATE_ORDER_ITEMS
+        for item in cart.items.all():
+            OrderItem.objects.create(
+                order = order,
+                product = item.product,
+                quantity = item.quantity,
+                price = item.product.price,
+            )
+            
+        
+        #CLEAR_THE_CART
+        cart.items.all().delete()
+        return Response({
+            "message": "Order Placed Sucessfully",
+            "order_id": order.id,
+        })
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)

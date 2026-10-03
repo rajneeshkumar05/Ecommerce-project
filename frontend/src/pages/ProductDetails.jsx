@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useCart } from "../context/CardContext";
 
 function ProductDetails() {
     const { id } = useParams();
@@ -9,6 +10,7 @@ function ProductDetails() {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const { addToCart } = useCart();
 
     useEffect(() => {
         fetch(`${BASEURL}/api/products/${id}/`)
@@ -67,7 +69,7 @@ function ProductDetails() {
                             {product.description}
                         </p>
 
-                        <button className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
+                        <button onClick={() => addToCart(product)} className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
                             Add to Cart
                         </button>
                     {/* Back to Home button */}
