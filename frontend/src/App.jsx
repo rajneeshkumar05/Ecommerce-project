@@ -1,9 +1,13 @@
+
 import ProductList from "./pages/ProductList.jsx";
 import { Routes, Route } from "react-router-dom";
 import ProductDetails from "./pages/ProductDetails.jsx";
 import Navbar from "./components/Navbar.jsx";
 import CartPage from "./pages/CartPage.jsx";
 import CheckoutPage from "./pages/CheckoutPage.jsx";
+import PrivateRouter from "./components/PrivateRouter.jsx";
+import Login from "./pages/Login.jsx";
+import Signup from "./pages/Signup.jsx";
 
 function App() {
     return (
@@ -18,15 +22,13 @@ function App() {
                     element={<ProductDetails />}
                 />
 
-                <Route
-                    path="/cart"
-                    element={<CartPage />}
-                />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
 
-                <Route
-                    path="/checkout" 
-                    element={<CheckoutPage/>}
-                />
+                <Route element={<PrivateRouter />}>
+                    <Route path="/cart" element={<CartPage />} />
+                    <Route path="/checkout" element={<CheckoutPage />} />
+                </Route>
             </Routes>
         </>
     );

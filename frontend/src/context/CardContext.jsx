@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { authFetch , getAccessToken} from "../utils/auth.js"; 
 
 const CardContext = createContext();
 
@@ -10,15 +11,30 @@ export const CardProvider = ({ children }) => {
 
     // Fetch cart items
     const fetchCartItems = async () => {
-        try {
-            const res = await fetch(`${BASEURL}/api/cart/`);
+        const token = getAccessToken();
 
-            if (!res.ok) {
-                throw new Error("Failed to fetch cart items");
+        if(!token) {
+            console.log("User is not logged in");
+            setCartItems([]);
+            setTotalPrice(0);
+            return;
+        }
+        try {
+            const res = await authFetch(`${BASEURL}/api/cart/`);
+            const data = await res.json();
+
+            console.log("CART API RESPONSE:", data);
+            console.log("Cart status:",res.status);
+            
+            if(res.status === 401) {
+                console.error("JWT token is invalid or expired");
+                return;
             }
 
-            const data = await res.json();
-            console.log("CART API RESPONSE:", data);
+            if(!res.ok){
+                throw new Error(data.detail || "Failed to fetch cart");
+            }
+
             setCartItems(data.items || []);
             setTotalPrice(data.total || 0);
 
@@ -32,18 +48,18 @@ export const CardProvider = ({ children }) => {
     }, []);
 
     // Add item to cart
-    const addToCart = async (product) => {
+    const addToCart = async (productId) => {
         console.log("Product:", product);
-        console.log("Product ID:", product.id);
+        console.log("Product ID:", productId);
 
         try {
-            const res = await fetch(`${BASEURL}/api/cart/add/`, {
+            authFetch(`${BASEURL}/api/cart/add/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    product_id: product.id,
+                    product_id: productId,
                     quantity: 1,
                 }),
             });
@@ -60,7 +76,7 @@ export const CardProvider = ({ children }) => {
                 );
             }
 
-            await fetchCartItems();
+            await fetchCart();
 
         } catch (error) {
             console.error("Error adding item to cart:", error);
@@ -70,7 +86,7 @@ export const CardProvider = ({ children }) => {
     // Remove item from cart
     const removeFromCart = async (itemId) => {
         try {
-            const res = await fetch(`${BASEURL}/api/cart/remove/`, {
+            const res = await authFetch(`${BASEURL}/api/cart/remove/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -107,7 +123,7 @@ export const CardProvider = ({ children }) => {
         }
 
         try {
-            const res = await fetch(`${BASEURL}/api/cart/update/`, {
+            const res = await authFetch(`${BASEURL}/api/cart/update/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

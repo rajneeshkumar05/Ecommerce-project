@@ -42,6 +42,15 @@ function ProductDetails() {
     if (!product) {
         return <div>No product found.</div>;
     }
+    
+    const handleAddToCart = () => {
+        if(!localStorage.getItem("accessToken")){
+            window.location.href = "/login";
+            return;
+        }
+        addToCart(product.id);
+        
+    }
 
     return (
         <div className="min-h-screen bg-gray-100 flex justify-center items-center py-10">
@@ -69,7 +78,7 @@ function ProductDetails() {
                             {product.description}
                         </p>
 
-                        <button onClick={() => addToCart(product)} className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
+                        <button onClick={handleAddToCart} className="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
                             Add to Cart
                         </button>
                     {/* Back to Home button */}

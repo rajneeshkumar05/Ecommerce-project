@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'store',
     'rest_framework',
     'rest_framework_simplejwt',
+    
 ]
 
 MIDDLEWARE = [
@@ -139,7 +140,7 @@ MAILERS = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = [
-    "http://localhost:3000",
+    "http://localhost:5173",
 ]
 
 MEDIA_URL = '/media/'

@@ -1,5 +1,9 @@
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view,permission_classes
+from rest_framework.permissions import IsAuthenticated,AllowAny
+from django.contrib.auth.models import User
+from .serializers import RegisterSerializer,UserSerializer
+from rest_framework import status
 from .models import Product,Category,CartItem,Cart,Order,OrderItem
 from .serializers import ProductSerializer,CategorySerializer,CartItemSerializer,CartSerializer
 
@@ -27,12 +31,14 @@ def get_product(request, pk):
     
     
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_cart(request):
-    cart,created = Cart.objects.get_or_create(user=None)
+    cart,created = Cart.objects.get_or_create(user=request.user)
     serializer = CartSerializer(cart)
     return Response(serializer.data)
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def add_to_cart(request):
     product_id = request.data.get('product_id')
 
@@ -50,7 +56,7 @@ def add_to_cart(request):
             status=404
         )
 
-    cart, created = Cart.objects.get_or_create(user=None)
+    cart, created = Cart.objects.get_or_create(user=request.user)
 
     item, created = CartItem.objects.get_or_create(
         cart=cart,
@@ -69,6 +75,7 @@ def add_to_cart(request):
     
     
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def update_cart_item(request):
     item_id = request.data.get('item_id')
     quantity = request.data.get('quantity')
@@ -92,6 +99,7 @@ def update_cart_item(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def remove_from_cart(request):
     item_id = request.data.get('item_id')
     CartItem.objects.filter(id=item_id).delete()
@@ -99,27 +107,29 @@ def remove_from_cart(request):
 
 #CREATE ORDER
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_order(request):
     try:
         data = request.data
         name = data.get('name')
         address = data.get('address')
         phone = data.get('phone')
-        payment_method = data.get('payment_method', 'COD')  # Default to Cash on Delivery if not provided
+        payment_method = data.get('payment_method', 'COD')
         
-        cart = Cart.objects.first()
+        #Validating Phone Number
+        if not phone.isdigit() or len(phone) < 10:
+            return Response({'error':"Invalid Phone Number"},status=400)
         
-        if not cart or not cart.items.exists():
-            return Response({'error': 'Cart is empty'}, status=400)
+        #GET_USER_CART
+        cart,created = Cart.objects.get_or_create(user=request.user)
+        if not cart.items.exists():
+            return Response ({'error':"Cart is empty"},status=400)
         
-        total_price = sum(float(item.product.price * item.quantity) for item in cart.items.all())
+        total_price = sum([item.product.price * item.quantity for item in cart.items.all()])
         
         #create order
-        order = Order.objects.create(
-            user=None,  # Assuming no user authentication for now
-            total_amount=total_price,
-            
-        )
+        order = Order.objects.create(user=request.user,total_amount=total_price,)
+        
         
         #CREATE_ORDER_ITEMS
         for item in cart.items.all():
@@ -129,8 +139,7 @@ def create_order(request):
                 quantity = item.quantity,
                 price = item.product.price,
             )
-            
-        
+    
         #CLEAR_THE_CART
         cart.items.all().delete()
         return Response({
@@ -139,3 +148,15 @@ def create_order(request):
         })
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_view(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        user=serializer.save()
+        return Response({"message":"User Created Successfully","user":UserSerializer(user).data},status=status.HTTP_201_CREATED)
+    return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+
